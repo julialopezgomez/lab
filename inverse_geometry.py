@@ -21,11 +21,11 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
 
     q = qcurrent.copy()
     DT = 1e-2
-    for i in range(500):
+    counter = 0
+    while True:
+        counter += 1
         pin.framesForwardKinematics(robot.model, robot.data, q)
         pin.computeJointJacobians(robot.model, robot.data, q)
-
-        setcubeplacement(robot, cube, cubetarget)
 
         # get the current position of the hands and the cube
         oMlhand = robot.data.oMf[robot.model.getFrameId(LEFT_HAND)]
@@ -51,9 +51,20 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
 
         q = pin.integrate(robot.model, q, vq*DT)
         viz.display(q)
-    
 
-    return q, collision(robot, q)
+        if np.linalg.norm(lhand_nu) < EPSILON and np.linalg.norm(rhand_nu) < EPSILON:
+            break
+        
+        print("\niteration", counter)
+        print("lhand_nu", np.linalg.norm(lhand_nu))
+        print("rhand_nu", np.linalg.norm(rhand_nu))
+
+    print("collision", collision(robot, q))
+    print("lhand_nu", np.linalg.norm(lhand_nu))
+    print("rhand_nu", np.linalg.norm(rhand_nu))
+    print("epsilon", EPSILON)
+
+    return q, not collision(robot, q) and np.linalg.norm(lhand_nu) < EPSILON and np.linalg.norm(rhand_nu) < EPSILON
             
 if __name__ == "__main__":
     from tools import setupwithmeshcat
@@ -67,7 +78,6 @@ if __name__ == "__main__":
     time.sleep(3)
     
     q = robot.q0.copy()
-    print(q)
     
     q0,successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
     qe,successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz)
