@@ -138,7 +138,7 @@ def get_path(G):
 
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
-def computepath(qinit,qgoal,cubeplacementq0, cubeplacementqgoal, k=1000, delta_q=0.1):
+def computepath(qinit,qgoal,cubeplacementq0, cubeplacementqgoal, k=1000, delta_q=0.5):
 
     G, pathfound = RRT(qinit, qgoal, k, delta_q, cubeplacementq0, cubeplacementqgoal)
     if not pathfound:
@@ -150,6 +150,8 @@ def computepath(qinit,qgoal,cubeplacementq0, cubeplacementqgoal, k=1000, delta_q
 
 
 def displaypath(robot,path,dt,viz):
+    if path is None:
+        return
     for q, c in path:
         setcubeplacement(robot, cube, c)
         viz.display(q)
@@ -172,7 +174,7 @@ if __name__ == "__main__":
     if not(successinit and successend):
         print ("error: invalid initial or end configuration")
     
-    path = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=1000, delta_q=0.5)
+    path = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.01)
     
     displaypath(robot,path,dt=0.1,viz=viz) #you ll probably want to lower dt
     
