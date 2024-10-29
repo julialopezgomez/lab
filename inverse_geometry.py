@@ -20,7 +20,7 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     setcubeplacement(robot, cube, cubetarget)
 
     q = qcurrent.copy()
-    DT = 1e-1
+    DT = 1e-2
     counter = 0
     while True:
         counter += 1

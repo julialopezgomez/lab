@@ -96,7 +96,7 @@ def NEW_CONF(q_near, c_near, c_rand, discretisationsteps, delta_q=None):
 def VALID_EDGE(q_new, c_new, c_goal, discretisationsteps):
     return norm(c_goal.translation - NEW_CONF(q_new, c_new, c_goal, discretisationsteps)[1].translation) < EPSILON
 
-def rrt(q_init, q_goal, k=int(1e10), delta_q=0.5):
+def rrt(q_init, q_goal, k=1000, delta_q=None):
 
     discretisationsteps_newconf = 200
     discretisationsteps_validedge = 200
@@ -125,9 +125,9 @@ def get_path(G):
     path = []
     node = G[-1]
     while node[0] is not None:
-        path = [node[1]] + path
+        path = [(node[1], node[2])] + path
         node = G[node[0]]
-    path = [G[0][1]] + path
+    path = [(G[0][1], G[0][2])] + path
     return path
 
 #returns a collision free path from qinit to qgoal under grasping constraints
@@ -144,7 +144,8 @@ def computepath(qinit,qgoal,cubeplacementq0, cubeplacementqgoal):
 
 
 def displaypath(robot,path,dt,viz):
-    for q in path:
+    for q, c in path:
+        setcubeplacement(robot, cube, c)
         viz.display(q)
         time.sleep(dt)
 
