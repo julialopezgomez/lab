@@ -20,7 +20,7 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     setcubeplacement(robot, cube, cubetarget)
 
     q = qcurrent.copy()
-    DT = 1e-2
+    DT = 1e-1
     counter = 0
     while True:
         counter += 1
@@ -54,14 +54,14 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         if viz is not None:
             viz.display(q)
         
-        print("\niteration", counter)
-        print("lhand_nu", norm(lhand_nu))
-        print("rhand_nu", norm(rhand_nu))
+        # print("\niteration", counter)
+        # print("lhand_nu", norm(lhand_nu))
+        # print("rhand_nu", norm(rhand_nu))
 
         if norm(lhand_nu) < EPSILON and norm(rhand_nu) < EPSILON:
             break # am I in collision? Should I check that?
 
-    print("\ncollision", collision(robot, q))
+    # print("\ncollision", collision(robot, q))
 
     return q, not collision(robot, q) # and norm(lhand_nu) < EPSILON and norm(rhand_nu) < EPSILON
             
