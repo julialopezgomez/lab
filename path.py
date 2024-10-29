@@ -15,7 +15,7 @@ from config import LEFT_HAND, RIGHT_HAND, EPSILON
 from tools import collision, setcubeplacement, getcubeplacement
 import time
 
-def RAND_CONF(q_current):
+def generate_random_cube_placement(q_current):
     #return a random configuration
     x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
     y_min, y_max = -0.3, 0.11  # Y-axis limits could be -0.3, 0.11
@@ -71,65 +71,55 @@ def nearest_vertex(G, c_rand):
 
 def add_edge_and_vertex(G, parent, q, c):
     G += [(parent, q, c)]
-    viz.display(q)
-    setcubeplacement(robot, cube, c)
 
+def lerp(q0, q1, t):
+    return q0*(1-t) + q1*t
 
-def lerp(cube_0, cube_1, t):
-    new_placement = cube_0.translation*(t-1) + cube_1.translation*t
+def lerp_cube(cube_0, cube_1, t):
+    new_placement = lerp(cube_0.translation, cube_1.translation, t)
     return pin.SE3(rotate('z', 0), new_placement)
 
-
 def new_placement(q_near, c_near, c_rand, discretisationsteps, delta_q=None):
-    print("FINDING NEW PLACEMENT NEAR c_near")
     c_end = c_rand.copy()
     dist = distance(c_near, c_rand)
     if delta_q is not None and dist > delta_q:
         # if the distance between q_near and q_rand is greater than delta_q, 
         # we need get a new configuration q_end that is delta_q away from q_near
         # we use delta_q/dist to get the ratio of the distance between q_near and q_rand
-        c_end = lerp(c_near, c_rand, delta_q/dist)
+        c_end = lerp_cube(c_near, c_rand, delta_q/dist)
         dist = delta_q
-        print(" cropped distance to delta_q")
 
     dt = dist / discretisationsteps
     q_prev = q_near.copy()
 
-    print("entering loop")
     for i in range(1,discretisationsteps):
-        c = lerp(c_near, c_end, i*dt)
-        print("has done linear interpolation")
+        c = lerp_cube(c_near, c_end, i*dt)
         q_end, valid = computeqgrasppose(robot, q_prev, cube, c)
-        print("has computed q_end")
         if not valid:
-            return q_prev, lerp(c_near, c_end, (i-1)*dt)
+            return q_prev, lerp_cube(c_near, c_end, (i-1)*dt)
         q_prev = q_end
     return q_end, c_end
 
 def valid_edge_to_goal(q_new, c_new, c_goal, discretisationsteps):
     return norm(c_goal.translation - new_placement(q_new, c_new, c_goal, discretisationsteps)[1].translation) < EPSILON
 
-def RRT(q_init, q_goal, k=1000, delta_q=0.1):
+def RRT(q_init, q_goal, k=1000, delta_q=0.1, cubeplacementq0=None, cubeplacementqgoal=None):
 
     discretisationsteps_newconf = 200
     discretisationsteps_validedge = 200
 
     q_init = q_init.copy()
     q_goal = q_goal.copy()
-    c_init = CUBE_PLACEMENT
-    c_goal = CUBE_PLACEMENT_TARGET
+    c_init = cubeplacementq0
+    c_goal = cubeplacementqgoal
     G = [(None, q_init, c_init)]
     for i in range(k):
         print("Iteration", i)
-        _, c_rand = RAND_CONF(q_init)
-        print("Random configuration", c_rand)
+        _, c_rand = generate_random_cube_placement(q_init)
         c_near_idx = nearest_vertex(G, c_rand)
-        print("Nearest vertex index", c_near_idx)
         q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
         q_new, c_new = new_placement(q_near, c_near, c_rand, discretisationsteps_newconf, delta_q)
-        print("New configuration", c_new)
         add_edge_and_vertex(G, c_near_idx, q_new, c_new)
-        print("Added edge and vertex")
         if valid_edge_to_goal(q_new, c_new, c_goal, discretisationsteps_validedge):
             print("Path found")
             add_edge_and_vertex(G, len(G)-1, q_goal, c_goal)
@@ -150,7 +140,7 @@ def get_path(G):
 #the path is expressed as a list of configurations
 def computepath(qinit,qgoal,cubeplacementq0, cubeplacementqgoal, k=1000, delta_q=0.1):
 
-    G, pathfound = RRT(qinit, qgoal, k, delta_q)
+    G, pathfound = RRT(qinit, qgoal, k, delta_q, cubeplacementq0, cubeplacementqgoal)
     if not pathfound:
         return None
     
@@ -184,5 +174,5 @@ if __name__ == "__main__":
     
     path = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=1000, delta_q=0.5)
     
-    displaypath(robot,path,dt=0.5,viz=viz) #you ll probably want to lower dt
+    displaypath(robot,path,dt=0.1,viz=viz) #you ll probably want to lower dt
     
