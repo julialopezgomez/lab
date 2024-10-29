@@ -19,18 +19,19 @@ def jointlimitsviolated(robot,q):
     return jointlimitscost(robot,q) > 0.
 
 def projecttojointlimits(robot,q):
+    # Project the configuration q to the joint limits. This means that if q is outside the joint limits, it will be projected to the closest joint limit.
     return np.minimum(np.maximum(robot.model.lowerPositionLimit, q), robot.model.upperPositionLimit)
 
 
 def collision(robot, q):
      '''Return true if in collision, false otherwise.'''
      pin.updateGeometryPlacements(robot.model,robot.data,robot.collision_model,robot.collision_data,q)
-     # if pin.computeCollisions(robot.collision_model,robot.collision_data,False):
-     #     for k in range(len(robot.collision_model.collisionPairs)): 
-     #         cr = robot.collision_data.collisionResults[k]
-     #         cp = robot.collision_model.collisionPairs[k]
-     #         if cr.isCollision():
-     #             print("collision pair:",robot.collision_model.geometryObjects[cp.first].name,",",robot.collision_model.geometryObjects[cp.second].name,"- collision:","Yes" if cr.isCollision() else "No")
+    #  if pin.computeCollisions(robot.collision_model,robot.collision_data,False):
+    #      for k in range(len(robot.collision_model.collisionPairs)): 
+    #          cr = robot.collision_data.collisionResults[k]
+    #          cp = robot.collision_model.collisionPairs[k]
+    #          if cr.isCollision():
+    #              print("collision pair:",robot.collision_model.geometryObjects[cp.first].name,",",robot.collision_model.geometryObjects[cp.second].name,"- collision:","Yes" if cr.isCollision() else "No")
      
      return pin.computeCollisions(robot.collision_model,robot.collision_data,False)
     

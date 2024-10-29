@@ -45,26 +45,25 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         lhand_J = pin.computeFrameJacobian(robot.model, robot.data, q, robot.model.getFrameId(LEFT_HAND))
         rhand_J = pin.computeFrameJacobian(robot.model, robot.data, q, robot.model.getFrameId(RIGHT_HAND))
 
+
         lhand_vq = pinv(lhand_J) @ lhand_nu
         Plhand = np.eye(robot.model.nv) - pinv(lhand_J) @ lhand_J
         vq = lhand_vq + pinv(rhand_J @ Plhand) @ (rhand_nu - rhand_J @ lhand_vq)
 
         q = pin.integrate(robot.model, q, vq*DT)
-        viz.display(q)
-
-        if np.linalg.norm(lhand_nu) < EPSILON and np.linalg.norm(rhand_nu) < EPSILON:
-            break
+        if viz is not None:
+            viz.display(q)
         
         print("\niteration", counter)
-        print("lhand_nu", np.linalg.norm(lhand_nu))
-        print("rhand_nu", np.linalg.norm(rhand_nu))
+        print("lhand_nu", norm(lhand_nu))
+        print("rhand_nu", norm(rhand_nu))
 
-    print("collision", collision(robot, q))
-    print("lhand_nu", np.linalg.norm(lhand_nu))
-    print("rhand_nu", np.linalg.norm(rhand_nu))
-    print("epsilon", EPSILON)
+        if norm(lhand_nu) < EPSILON and norm(rhand_nu) < EPSILON:
+            break # am I in collision? Should I check that?
 
-    return q, not collision(robot, q) and np.linalg.norm(lhand_nu) < EPSILON and np.linalg.norm(rhand_nu) < EPSILON
+    print("\ncollision", collision(robot, q))
+
+    return q, not collision(robot, q) # and norm(lhand_nu) < EPSILON and norm(rhand_nu) < EPSILON
             
 if __name__ == "__main__":
     from tools import setupwithmeshcat
@@ -78,10 +77,9 @@ if __name__ == "__main__":
     time.sleep(3)
     
     q = robot.q0.copy()
-    
     q0,successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
     qe,successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz)
-    
+
     updatevisuals(viz, robot, cube, qe)
     
     
