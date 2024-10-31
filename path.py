@@ -76,8 +76,6 @@ def lerp(q0, q1, t):
     return q0*(1-t) + q1*t
 
 def lerp_cube(cube_0, cube_1, t):
-    cube_0 = cube_0.copy()
-    cube_1 = cube_1.copy()
     new_placement = lerp(cube_0.translation, cube_1.translation, t)
     return pin.SE3(rotate('z', 0), new_placement)
 
@@ -89,11 +87,10 @@ def new_placement(q_near, c_near, c_rand, discretisationsteps, delta_q=None):
         # we need get a new configuration q_end that is delta_q away from q_near
         # we use delta_q/dist to get the ratio of the distance between q_near and q_rand
         c_end = lerp_cube(c_near, c_rand, delta_q/dist)
-        dist = delta_q
 
     dt = 1 / discretisationsteps
-    q_prev = q_near
-    c_prev = c_near
+    q_prev = q_near.copy()
+    c_prev = c_near.copy()
     for i in range(1,discretisationsteps + 1):
         c = lerp_cube(c_near, c_end, i*dt)
         q_end, valid = computeqgrasppose(robot, q_prev, cube, c)
@@ -104,10 +101,10 @@ def new_placement(q_near, c_near, c_rand, discretisationsteps, delta_q=None):
 
     return q_end, c
 
-def valid_edge_to_goal(q_new, c_new, c_goal, discretisationsteps, delta_q=0.1):
+def valid_edge_to_goal(q_new, c_new, c_goal, discretisationsteps, delta_q=0.01):
     return norm(c_goal.translation - new_placement(q_new, c_new, c_goal, discretisationsteps, delta_q)[1].translation) < delta_q
 
-def RRT(q_init, q_goal, k=1000, delta_q=0.1, cubeplacementq0=None, cubeplacementqgoal=None):
+def RRT(q_init, q_goal, k=1000, delta_q=0.01, cubeplacementq0=None, cubeplacementqgoal=None):
 
     discretisationsteps_newconf = 200
     discretisationsteps_validedge = 200
@@ -145,7 +142,7 @@ def get_path(G):
 
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
-def computepath(qinit,qgoal,cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.1):
+def computepath(qinit,qgoal,cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
 
     G, pathfound = RRT(qinit, qgoal, k, delta_q, cubeplacementq0, cubeplacementqgoal)
     if not pathfound:
@@ -174,32 +171,26 @@ def plot_trajectory_in_3D(path, G):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
+    for _, _, c in G:
+        ax.scatter(c.translation[0], c.translation[1], c.translation[2], c='grey', marker='o')
+
+
     if path is not None:
         for i in range(len(path)-1):
             q1, c1 = path[i]
             q2, c2 = path[i+1]
             ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'b')
-    i=0
-    repeats = set()
-    for _, q, c in G:
-        k = c.translation.copy()
-        if tuple(c.translation) in repeats:
-            k = ''
-        print("{}: {}\t\t {}: {}".format(i, c.translation, i, k))
-        repeats.add(tuple(c.translation))
-        ax.scatter(c.translation[0], c.translation[1], c.translation[2], c='r', marker='o')
-        i+=1
-
-    print("len(G):", len(G))
-    print("len(repeats):", len(repeats))
-
+   
     
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
 
     plt.show()
 
 if __name__ == "__main__":
     from tools import setupwithmeshcat
-    from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, OBSTACLE_PLACEMENT
+    from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
     from inverse_geometry import computeqgrasppose
     
     
@@ -214,12 +205,12 @@ if __name__ == "__main__":
     if not(successinit and successend):
         print ("error: invalid initial or end configuration")
     
-    path, G = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.01)
+    path, G = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.05)
 
     input("Press Enter to display the path")
     
     while True:
-        displaypath(robot,path,dt=0.1,viz=viz) # you ll probably want to lower dt
+        displaypath(robot,path,dt=0.05,viz=viz) # you ll probably want to lower dt
         if input("Press Enter to display the path again, type 'q' to quit") == 'q':
             break
 
