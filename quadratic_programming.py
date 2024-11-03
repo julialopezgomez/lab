@@ -12,9 +12,44 @@ def quadratic_bezier(P0, P1, P2, t):
     """Compute a point on a quadratic Bézier curve."""
     return (1 - t)**2 * P0 + 2 * (1 - t) * t * P1 + t**2 * P2
 
+def compute_smooth_control_points(cube_placements):
+    """
+    Compute smooth control points for each segment of the path.
+    
+    Args:
+        cube_placements (list): A list of SE3 cube placements from the RRT path.
+    
+    Returns:
+        A list of control points for the Bézier curves.
+    """
+    control_points = []
+    n = len(cube_placements)
+
+    for i in range(n):
+        if i == 0:
+            # First point: Use the next point to determine the direction
+            P0 = cube_placements[i].translation
+            P1 = cube_placements[i + 1].translation
+            control_point = P0 + 0.5 * (P1 - P0)
+        elif i == n - 1:
+            # Last point: Use the previous point to determine the direction
+            P0 = cube_placements[i - 1].translation
+            P1 = cube_placements[i].translation
+            control_point = P1 + 0.5 * (P1 - P0)
+        else:
+            # Middle points: Use both neighbors to determine the direction
+            P_prev = cube_placements[i - 1].translation
+            P_curr = cube_placements[i].translation
+            P_next = cube_placements[i + 1].translation
+            control_point = P_curr + 0.5 * (P_next - P_prev)
+
+        control_points.append(control_point)
+
+    return control_points
+
 def interpolate_cube_path_with_quadratic_bezier(cube_placements, total_time):
     """
-    Generate a smooth trajectory for the cube using quadratic Bézier curves.
+    Generate a smooth trajectory for the cube using quadratic Bézier curves for each segment.
     
     Args:
         cube_placements (list): A list of SE3 cube placements from the RRT path.
@@ -25,6 +60,9 @@ def interpolate_cube_path_with_quadratic_bezier(cube_placements, total_time):
     """
     num_segments = len(cube_placements) - 1
     segment_duration = total_time / num_segments
+
+    # Compute smooth control points
+    control_points = compute_smooth_control_points(cube_placements)
 
     def cube_trajectory(t_real):
         # Determine which segment we're in
@@ -38,7 +76,7 @@ def interpolate_cube_path_with_quadratic_bezier(cube_placements, total_time):
         # Get the control points for this segment
         P0 = cube_placements[segment_index].translation
         P2 = cube_placements[segment_index + 1].translation
-        P1 = (P0 + P2) / 2  # Simple choice: control point in the middle
+        P1 = control_points[segment_index]  # Use the smooth control point
 
         # Compute the position of the cube
         position = quadratic_bezier(P0, P1, P2, t_segment)
