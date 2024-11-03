@@ -10,6 +10,7 @@ class Bezier:
         self.size_ = len(pointlist)- 1
         self.degree_ = self.size_ - 1
         self.control_points_ = pointlist    
+        print(self.size_, self.T_max_, self.T_min_)
         if (self.size_ < 1 or self.T_max_ <= self.T_min_):
             raise ValueError("Can't create Bezier curve; min bound is higher than max bound.")
             

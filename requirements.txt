@@ -9,3 +9,4 @@ scipy
 tensorflow
 ndcurves
 pybullet
+cvxpy

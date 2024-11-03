@@ -15,7 +15,14 @@ from config import LEFT_HAND, RIGHT_HAND, EPSILON
 from tools import collision, setcubeplacement, getcubeplacement
 import time
 
-def generate_random_cube_placement(q_current):
+from tools import setupwithmeshcat
+from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
+from inverse_geometry import computeqgrasppose
+
+import matplotlib.pyplot as plt
+from plotting import plot_trajectory_in_3D
+
+def generate_random_cube_placement(robot, cube, q_current):
     #return a random configuration
     x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
     y_min, y_max = -0.3, 0.11  # Y-axis limits could be -0.3, 0.11
@@ -79,7 +86,7 @@ def lerp_cube(cube_0, cube_1, t):
     new_placement = lerp(cube_0.translation, cube_1.translation, t)
     return pin.SE3(rotate('z', 0), new_placement)
 
-def new_placement(q_near, c_near, c_rand, discretisationsteps, delta_q=None):
+def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delta_q=None):
     c_end = c_rand.copy()
     dist = distance(c_near, c_rand)
     if delta_q is not None and dist > delta_q:
@@ -101,10 +108,10 @@ def new_placement(q_near, c_near, c_rand, discretisationsteps, delta_q=None):
 
     return q_end, c
 
-def valid_edge_to_goal(q_new, c_new, c_goal, discretisationsteps, delta_q=0.01):
-    return norm(c_goal.translation - new_placement(q_new, c_new, c_goal, discretisationsteps, delta_q)[1].translation) < delta_q
+def valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q=0.01):
+    return norm(c_goal.translation - new_placement(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q)[1].translation) < delta_q
 
-def RRT(q_init, q_goal, k=1000, delta_q=0.01, cubeplacementq0=None, cubeplacementqgoal=None):
+def RRT(robot, cube, q_init, q_goal, k=1000, delta_q=0.01, cubeplacementq0=None, cubeplacementqgoal=None):
 
     discretisationsteps_newconf = 200
     discretisationsteps_validedge = 200
@@ -118,12 +125,12 @@ def RRT(q_init, q_goal, k=1000, delta_q=0.01, cubeplacementq0=None, cubeplacemen
     for i in range(k):
 
         print("Iteration", i)
-        _, c_rand = generate_random_cube_placement(q_init)
+        _, c_rand = generate_random_cube_placement(robot, cube, q_init)
         c_near_idx = nearest_vertex(G, c_rand)
         q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
-        q_new, c_new = new_placement(q_near, c_near, c_rand, discretisationsteps_newconf, delta_q)
+        q_new, c_new = new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps_newconf, delta_q)
         add_edge_and_vertex(G, c_near_idx, q_new, c_new)
-        if valid_edge_to_goal(q_new, c_new, c_goal, discretisationsteps_validedge, delta_q):
+        if valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps_validedge, delta_q):
             print("Path found")
             add_edge_and_vertex(G, len(G)-1, q_goal, c_goal)
             return G, True
@@ -142,14 +149,14 @@ def get_path(G):
 
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
-def computepath(qinit,qgoal,cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
-
-    G, pathfound = RRT(qinit, qgoal, k, delta_q, cubeplacementq0, cubeplacementqgoal)
+def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
+    # Your existing RRT and path planning logic
+    # Make sure to use the passed `robot` and `cube` variables
+    G, pathfound = RRT(robot, cube, qinit, qgoal, k, delta_q, cubeplacementq0, cubeplacementqgoal)
     if not pathfound:
         return None, G
-    
+
     path = get_path(G)
-    
     return path, G
 
 
@@ -161,39 +168,8 @@ def displaypath(robot,path,dt,viz):
         viz.display(q)
         time.sleep(dt)
 
-def plot_trajectory_in_3D(path, G):
-    '''
-    Creates a 3D plot of the trajectory, with lines connecting the points, and also plots all the vertices of the graph
-    '''
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    for _, _, c in G:
-        ax.scatter(c.translation[0], c.translation[1], c.translation[2], c='grey', marker='o')
-
-
-    if path is not None:
-        for i in range(len(path)-1):
-            q1, c1 = path[i]
-            q2, c2 = path[i+1]
-            ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'b')
-   
-    
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-
-    plt.show()
-
 if __name__ == "__main__":
-    from tools import setupwithmeshcat
-    from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
-    from inverse_geometry import computeqgrasppose
-    
-    
+
     robot, cube, viz = setupwithmeshcat()
     
 
@@ -205,7 +181,7 @@ if __name__ == "__main__":
     if not(successinit and successend):
         print ("error: invalid initial or end configuration")
     
-    path, G = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.05)
+    path, G = computepath(robot, cube, q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.05)
 
     input("Press Enter to display the path")
     
