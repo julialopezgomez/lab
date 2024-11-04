@@ -40,28 +40,28 @@ def plot_quadratic_bezier_trajectory(trajectory, total_time, original_path):
     times = np.linspace(0, total_time, 100)
     x_traj, y_traj, z_traj = [], [], []
     for t in times:
-        q, _, _ = trajectory(t)
-        x_traj.append(q[0])
-        y_traj.append(q[1])
-        z_traj.append(q[2])
+        c, _, _ = trajectory(t)
+        x_traj.append(c[0])
+        y_traj.append(c[1])
+        z_traj.append(c[2])
 
     # Plot the quadratic Bézier trajectory
     ax.plot(x_traj, y_traj, z_traj, 'r', label='Quadratic Bézier Trajectory')
 
     # Extract the original path coordinates
     x_orig, y_orig, z_orig = [], [], []
-    for q, _ in original_path:  # Assuming each element in the path is (q, placement)
-        x_orig.append(q[0])
-        y_orig.append(q[1])
-        z_orig.append(q[2])
+    for _, c in original_path:  # Assuming each element in the path is (q, placement)
+        x_orig.append(c.translation[0])
+        y_orig.append(c.translation[1])
+        z_orig.append(c.translation[2])
 
     for i in range(len(original_path)-1):
         q1, c1 = original_path[i]
-        q2, c2 = original_path[i+1]
+        _, c2 = original_path[i+1]
         ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'b')
 
     # # Plot the original path
-    # ax.scatter(x_orig, y_orig, z_orig, c='b', marker='o', label='Original Path', alpha=0.6)
+    ax.scatter(x_orig, y_orig, z_orig, c='b', marker='o', label='Original Path', alpha=0.6)
 
     # Set labels and legend
     ax.set_xlabel('X')

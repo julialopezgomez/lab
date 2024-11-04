@@ -134,6 +134,7 @@ def RRT(robot, cube, q_init, q_goal, k=1000, delta_q=0.01, cubeplacementq0=None,
             print("Path found")
             add_edge_and_vertex(G, len(G)-1, q_goal, c_goal)
             return G, True
+        
     print("Path not found")
 
     return G, False
@@ -191,4 +192,4 @@ if __name__ == "__main__":
             break
 
     input("Press Enter to plot the path in 3D")
-    plot_trajectory_in_3D(path, G)
+    plot_trajectory_in_3D(path, G, displayG=True)

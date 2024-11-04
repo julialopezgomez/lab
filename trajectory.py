@@ -2,9 +2,13 @@ import numpy as np
 from bezier import Bezier
 
 from path import computepath
-from tools import setupwithmeshcat
+from tools import setupwithmeshcat, setcubeplacement
 from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 from inverse_geometry import computeqgrasppose
+from plotting import plot_quadratic_bezier_trajectory
+import pinocchio as pin
+from pinocchio.utils import rotate
+import time
     
 
 def interpolate_path(path, total_time):
@@ -19,8 +23,8 @@ def interpolate_path(path, total_time):
         A function that takes time t and returns the configuration, velocity, and acceleration.
     """
     # Extract configurations from the path
-    configurations = [q for (q, c) in path]
-    
+    configurations = [c.translation for (q, c) in path]
+
     # Ensure that we have at least two configurations to create a Bezier curve
     if len(configurations) < 2:
         raise ValueError("Path must have at least two configurations to create a Bezier curve.")
@@ -54,6 +58,14 @@ def interpolate_path(path, total_time):
 
     return trajectory
 
+def displaypath(robot,path,dt,viz):
+    if path is None:
+        return
+    for q, c in path:
+        setcubeplacement(robot, cube, c)
+        viz.display(q)
+        time.sleep(dt)
+
 if __name__ == "__main__":
     robot, cube, viz = setupwithmeshcat()
     # Example usage:
@@ -62,7 +74,7 @@ if __name__ == "__main__":
     qe, successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET, viz=None)
 
     # Pass `robot` and `cube` to `computepath`
-    path, G = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.05)
+    path, G = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.2)
 
     total_time = 5.0  # Total duration of 5 seconds
     traj = interpolate_path(path, total_time)
@@ -71,3 +83,19 @@ if __name__ == "__main__":
     for t in np.linspace(0, total_time, 10):
         q, v, a = traj(t)
         print(f"t={t:.2f}: q={q}, v={v}, a={a}")
+
+    displaypath(robot, path, dt=0.05, viz=viz)
+    # Sample the quadratic Bézier trajectory
+    times = np.linspace(0, total_time, 100)
+    x_traj, y_traj, z_traj = [], [], []
+    q_prev = robot.q0.copy()
+    for t in times:
+        c, _, _ = traj(t)
+        c = pin.SE3(rotate('z', 0), c)
+        setcubeplacement(robot, cube, c)
+        q, valid = computeqgrasppose(robot, q_prev, cube, c, viz=None)
+        viz.display(q)
+        q_prev = q
+        time.sleep(0.1)
+
+    plot_quadratic_bezier_trajectory(traj, total_time, path)
