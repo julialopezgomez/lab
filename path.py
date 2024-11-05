@@ -79,8 +79,8 @@ def nearest_vertex(G, c_rand):
 def add_edge_and_vertex(G, parent, q, c):
     G += [(parent, q, c)]
 
-def lerp(q0, q1, t):
-    return q0*(1-t) + q1*t
+def lerp(p0, p1, t):
+    return p0*(1-t) + p1*t
 
 def lerp_cube(cube_0, cube_1, t):
     new_placement = lerp(cube_0.translation, cube_1.translation, t)
@@ -111,7 +111,7 @@ def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delt
 def valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q=0.01):
     return norm(c_goal.translation - new_placement(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q)[1].translation) < delta_q
 
-def RRT(robot, cube, q_init, q_goal, k=1000, delta_q=0.01, cubeplacementq0=None, cubeplacementqgoal=None):
+def RRT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
 
     discretisationsteps_newconf = 200
     discretisationsteps_validedge = 200
@@ -143,9 +143,9 @@ def get_path(G):
     path = []
     node = G[-1]
     while node[0] is not None:
-        path = [(node[1], node[2])] + path
+        path = [node[1]] + path #[(node[1], node[2])] + path
         node = G[node[0]]
-    path = [(G[0][1], G[0][2])] + path
+    path = [G[0][1]] + path #[(G[0][1], G[0][2])] + path
     return path
 
 #returns a collision free path from qinit to qgoal under grasping constraints
@@ -153,19 +153,24 @@ def get_path(G):
 def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
     # Your existing RRT and path planning logic
     # Make sure to use the passed `robot` and `cube` variables
-    G, pathfound = RRT(robot, cube, qinit, qgoal, k, delta_q, cubeplacementq0, cubeplacementqgoal)
+    G, pathfound = RRT(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k, delta_q)
     if not pathfound:
         return None, G
 
     path = get_path(G)
-    return path, G
+    return path#, G # TODO path should just be the list of configurations.
 
 
 def displaypath(robot,path,dt,viz):
     if path is None:
         return
-    for q, c in path:
-        setcubeplacement(robot, cube, c)
+    # for q, c in path:
+    #     setcubeplacement(robot, cube, c)
+    #     viz.display(q)
+    #     time.sleep(dt)
+
+    setcubeplacement(robot, cube, CUBE_PLACEMENT)
+    for q in path:
         viz.display(q)
         time.sleep(dt)
 
@@ -182,7 +187,7 @@ if __name__ == "__main__":
     if not(successinit and successend):
         print ("error: invalid initial or end configuration")
     
-    path, G = computepath(robot, cube, q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.05)
+    path = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.05)
 
     input("Press Enter to display the path")
     
@@ -192,4 +197,4 @@ if __name__ == "__main__":
             break
 
     input("Press Enter to plot the path in 3D")
-    plot_trajectory_in_3D(path, G, displayG=True)
+    # plot_trajectory_in_3D(path, G, displayG=True)
