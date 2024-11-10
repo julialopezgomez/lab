@@ -1,4 +1,5 @@
 import numpy as np
+import cvxpy as cp
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -14,36 +15,63 @@ def quadratic_bezier(P0, P1, P2, t):
 
 def compute_smooth_control_points(cube_placements):
     """
-    Compute smooth control points for each segment of the path.
+    Compute smooth control points for each segment of the path using quadratic programming.
     
     Args:
         cube_placements (list): A list of SE3 cube placements from the RRT path.
     
     Returns:
-        A list of control points for the Bézier curves.
+        A list of optimized control points for the Bézier curves.
     """
-    control_points = []
-    n = len(cube_placements)
-
+    n = len(cube_placements) - 1  # Number of segments
+    dim = 3  # Dimension (x, y, z)
+    
+    # Variables: Control points for each segment (P1)
+    P1 = [cp.Variable(dim) for _ in range(n)]
+    
+    # Constraints
+    constraints = []
+    
+    # Objective: Minimize the sum of squared differences between consecutive control points
+    # to ensure smoothness
+    objective_terms = []
     for i in range(n):
-        if i == 0:
-            # First point: Use the next point to determine the direction
-            P0 = cube_placements[i].translation
-            P1 = cube_placements[i + 1].translation
-            control_point = P0 + 0.5 * (P1 - P0)
-        elif i == n - 1:
-            # Last point: Use the previous point to determine the direction
-            P0 = cube_placements[i - 1].translation
-            P1 = cube_placements[i].translation
-            control_point = P1 + 0.5 * (P1 - P0)
-        else:
-            # Middle points: Use both neighbors to determine the direction
-            P_prev = cube_placements[i - 1].translation
-            P_curr = cube_placements[i].translation
-            P_next = cube_placements[i + 1].translation
-            control_point = P_curr + 0.5 * (P_next - P_prev)
+        # Position constraints at t=0 and t=1
+        P0 = cube_placements[i].translation
+        P2 = cube_placements[i + 1].translation
 
-        control_points.append(control_point)
+        # No need to add constraints for P0 and P2 since they are fixed
+
+        if i < n - 1:
+            # Velocity continuity between segments
+            # Compute derivative at t=1 for segment i and derivative at t=0 for segment i+1
+            # B'_i(1) = 2(P2 - P1_i)
+            # B'_{i+1}(0) = 2(P1_{i+1} - P0_{i+1})
+            constraints.append(2 * (P2 - P1[i]) == 2 * (P1[i + 1] - cube_placements[i + 1].translation))
+
+        if i > 0:
+            # Optional: Minimize the change in acceleration (smoothness)
+            acc_i = 2 * (P2 - 2 * P1[i] + P0)
+            P0_prev = cube_placements[i - 1].translation
+            P2_prev = P0
+            acc_prev = 2 * (P2_prev - 2 * P1[i - 1] + P0_prev)
+            objective_terms.append(cp.norm(acc_i - acc_prev, 2)**2)
+        else:
+            # For the first segment, we can minimize the acceleration
+            P0 = cube_placements[i].translation
+            P2 = cube_placements[i + 1].translation
+            acc_i = 2 * (P2 - 2 * P1[i] + P0)
+            objective_terms.append(cp.norm(acc_i, 2)**2)
+
+    # Sum the objective terms
+    objective = cp.Minimize(cp.sum(objective_terms))
+
+    # Solve the optimization problem
+    problem = cp.Problem(objective, constraints)
+    problem.solve()
+
+    # Retrieve optimized control points
+    control_points = [P1_i.value for P1_i in P1]
 
     return control_points
 

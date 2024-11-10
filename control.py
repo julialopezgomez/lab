@@ -13,6 +13,7 @@ from bezier import Bezier
 # in my solution these gains were good enough for all joints but you might want to tune this.
 Kp = 300.               # proportional gain (P of PD)
 Kv = 2 * np.sqrt(Kp)   # derivative gain (D of PD)
+Ki = 0.1
 
 def controllaw(sim, robot, trajs, tcurrent, cube):
     q, vq = sim.getpybulletstate()
@@ -20,10 +21,18 @@ def controllaw(sim, robot, trajs, tcurrent, cube):
     torques = [0.0 for _ in sim.bulletCtrlJointsInPinOrder]
     sim.step(torques)
 
+    q_of_t = trajs[0]
+    target_pos = q_of_t(tcurrent) # getting the 
+
+    e = trajs[0] - q
+    torque = q0*Kp
+    sim.step(torque) # simulating the robots action in pybullet
+
 if __name__ == "__main__":
         
     from tools import setupwithpybullet, setupwithpybulletandmeshcat, rununtil
     from config import DT
+    from tools import setupwithmeshcat
     
     robot, sim, cube = setupwithpybullet()
     
@@ -31,10 +40,12 @@ if __name__ == "__main__":
     from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET    
     from inverse_geometry import computeqgrasppose
     from path import computepath
+
+    robot, cube, viz = setupwithmeshcat()
     
     q0,successinit = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT, None)
     qe,successend = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT_TARGET,  None)
-    path = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
+    path = computepath(robot, cube, q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
 
     
     #setting initial configuration
@@ -45,7 +56,8 @@ if __name__ == "__main__":
     #In any case this trajectory does not follow the path 
     #0 init and end velocities
     def maketraj(q0,q1,T): #TODO compute a real trajectory !
-        q_of_t = Bezier([q0,q0,q1,q1],t_max=T)
+        config = [q0,q0] + [path] + [q1,q1]
+        q_of_t = Bezier(config,t_max=T)
         vq_of_t = q_of_t.derivative(1)
         vvq_of_t = vq_of_t.derivative(1)
         return q_of_t, vq_of_t, vvq_of_t
