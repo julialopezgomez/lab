@@ -143,7 +143,7 @@ def get_path(G):
     path = []
     node = G[-1]
     while node[0] is not None:
-        path = [node[1]] + path #[(node[1], node[2])] + path
+        path = [node[1]] + path  #[(node[1], node[2])] + path
         node = G[node[0]]
     path = [G[0][1]] + path #[(G[0][1], G[0][2])] + path
     return path
