@@ -24,6 +24,8 @@ def controllaw(sim, robot, trajs, tcurrent, cube):
     The trajectory is a tuple of three functions q(t), vq(t), vvq(t) that return the desired configuration, velocity and acceleration at time t.
     '''
     q, vq = sim.getpybulletstate()
+
+    print(tcurrent)
     
     # compute the desired configuration, velocity and acceleration at time tcurrent 
     qd = trajs[0](tcurrent)
@@ -36,11 +38,8 @@ def controllaw(sim, robot, trajs, tcurrent, cube):
     lhand_J = pin.computeFrameJacobian(robot.model, robot.data, q, robot.model.getFrameId(LEFT_HAND))
     rhand_J = pin.computeFrameJacobian(robot.model, robot.data, q, robot.model.getFrameId(RIGHT_HAND))
 
-    lforce = pin.Force.Zero()
-    rforce = pin.Force.Zero()
-
-    lforce.linear =[1,1,1]
-    rforce.linear =[1,1,1]
+    lforce = np.array([1., -30., 30., 0., 0., 0.])
+    rforce = np.array([1., -30., 30., 0., 0., 0.])
 
     # magnitude tens, ignore angular
 
@@ -154,8 +153,9 @@ if __name__ == "__main__":
     def lerp(q0, q1, t):
         return q0*(1-t) + q1*t
     
-    def maketraj(path,T): #TODO compute a real trajectory !
+    def maketraj(path,T): 
         # interpolated_path = []
+
 
         # for i in range(len(path)-1):
         #     q0 = path[i]
@@ -165,17 +165,40 @@ if __name__ == "__main__":
         #         interpolated_path.append(lerp(q0, q1, i*dt))
         # interpolated_path.append(path[-1])
 
-        # for i in range(len(interpolated_path)-2):
-        #     q0 = interpolated_path[i]
-        #     q1 = interpolated_path[i+1]
-        #     q2 = interpolated_path[i+2]
-        #     control_points = [q0, q1, q2]
+        # segment_length = 3
+        # num_bezier_segments = len(interpolated_path)//segment_length
+        # bezier_segments = []
+        # dt = T/num_bezier_segments
+        # for i in range(num_bezier_segments):
+        #     j = segment_length*i
+        #     control_points = []
+        #     for k in range(segment_length):
+        #         control_points.append(interpolated_path[j+k])
 
-        #     q_of_t = Bezier(control_points, t_max=dt)
+        #     if i == num_bezier_segments-1:
+        #         num_extra_points = len(interpolated_path) - segment_length*num_bezier_segments
+        #         for k in range(num_extra_points):
+        #             control_points.append(interpolated_path[-num_extra_points+k])
+            
+        #     bezier_segments.append(Bezier(control_points, t_min=i*dt, t_max=(i+1)*dt))
+
+        # def q_of_t(t):
+        #     segment = int(t//dt)
+        #     return bezier_segments[segment](t)
+        
+        # def vq_of_t(t):
+        #     segment = int(t//dt)
+        #     return bezier_segments[segment].derivative(1)(t)
+        
+        # def vvq_of_t(t):
+        #     segment = int(t//dt)
+        #     return bezier_segments[segment].derivative(2)(t)
 
         q_of_t = Bezier(path, t_max=T)
         vq_of_t = q_of_t.derivative(1)
-        vvq_of_t = vq_of_t.derivative(1)
+        vvq_of_t = q_of_t.derivative(2)
+
+        
         return q_of_t, vq_of_t, vvq_of_t
     
     
