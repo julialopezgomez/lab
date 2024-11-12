@@ -15,8 +15,33 @@ Kp = 300.               # proportional gain (P of PD)
 Kv = 2 * np.sqrt(Kp)   # derivative gain (D of PD)
 
 def controllaw(sim, robot, trajs, tcurrent, cube):
+    '''
+    This function computes the torques to be applied to the robot in order to follow the trajectory trajs.
+    The trajectory is a tuple of three functions q(t), vq(t), vvq(t) that return the desired configuration, velocity and acceleration at time t.
+    '''
     q, vq = sim.getpybulletstate()
-    #TODO 
+    
+    #TODO compute the desired configuration, velocity and acceleration at time tcurrent 
+    qd = trajs[0](tcurrent)
+    vqd = trajs[1](tcurrent)
+    vvqd = trajs[2](tcurrent)
+
+    #TODO compute the error between the desired configuration and the current configuration
+    e = qd - q
+    #TODO compute the error between the desired velocity and the current velocity
+    ed = vqd - vq
+    
+    #TODO compute the desired acceleration
+    Kp*e + Kv*ed
+
+    NLE coriollis force
+    CRBA mass matrix
+
+
+
+
+
+
     torques = [0.0 for _ in sim.bulletCtrlJointsInPinOrder]
     sim.step(torques)
 
@@ -45,12 +70,8 @@ if __name__ == "__main__":
     #In any case this trajectory does not follow the path 
     #0 init and end velocities
     def maketraj(path,T): #TODO compute a real trajectory !
-        q0 = path[0][0]
 
-
-
-
-        q_of_t = Bezier([q0,q0,q1,q1],t_max=T)
+        q_of_t = Bezier(path, t_max=T)
         vq_of_t = q_of_t.derivative(1)
         vvq_of_t = vq_of_t.derivative(1)
         return q_of_t, vq_of_t, vvq_of_t
