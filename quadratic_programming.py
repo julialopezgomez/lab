@@ -31,6 +31,18 @@ def compute_smooth_control_points(cube_placements):
     
     # Constraints
     constraints = []
+
+    # interpolate between each two points with a quadratic bezier curve
+
+    for i in range(n):
+
+        P0 = cube_placements[i].translation
+        P2 = cube_placements[i + 1].translation
+
+        # interpolate between P0 and P2 with a quadratic bezier curve
+        
+
+
     
     # Objective: Minimize the sum of squared differences between consecutive control points
     # to ensure smoothness
