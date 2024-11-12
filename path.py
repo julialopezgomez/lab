@@ -158,6 +158,9 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
         return None, G
 
     path = get_path(G)
+
+    print("path = ", path)
+
     return path#, G # TODO path should just be the list of configurations.
 
 
