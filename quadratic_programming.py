@@ -73,6 +73,10 @@ def compute_smooth_control_points(cube_placements):
     # Retrieve optimized control points
     control_points = [P1_i.value for P1_i in P1]
 
+    # replace the first and last control points with the original cube placements
+    # control_points.insert(0, cube_placements[0].translation)
+    # control_points.append(cube_placements[-1].translation)
+
     return control_points
 
 def interpolate_cube_path_with_quadratic_bezier(cube_placements, total_time):
