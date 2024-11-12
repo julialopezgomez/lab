@@ -59,7 +59,7 @@ if __name__ == "__main__":
     
     q0,successinit = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT, None)
     qe,successend = computeqgrasppose(robot, robot.q0, cube, CUBE_PLACEMENT_TARGET,  None)
-    path = computepath(q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
+    path = computepath(robot, cube, q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
 
     
     #setting initial configuration
@@ -69,12 +69,37 @@ if __name__ == "__main__":
     #TODO this is just an example, you are free to do as you please.
     #In any case this trajectory does not follow the path 
     #0 init and end velocities
+    def lerp(q0, q1, t):
+        return q0*(1-t) + q1*t
+    
     def maketraj(path,T): #TODO compute a real trajectory !
+        interpolated_path = []
+        trajectory = []
 
-        q_of_t = Bezier(path, t_max=T)
-        vq_of_t = q_of_t.derivative(1)
-        vvq_of_t = vq_of_t.derivative(1)
-        return q_of_t, vq_of_t, vvq_of_t
+        for i in range(len(path)-1):
+            q0 = path[i]
+            q1 = path[i+1]
+            for i in range(6):
+                dt = 1/6
+                interpolated_path.append(lerp(q0, q1, i*dt))
+
+        for i in range(len(interpolated_path)-3):
+            q0 = interpolated_path[i]
+            q1 = interpolated_path[i+1]
+            q2 = interpolated_path[i+2]
+            control_points = [q0, q1, q2]
+
+            q_of_t = Bezier(control_points, t_max=dt)
+
+            vq_of_t = q_of_t.derivative(1)
+            vvq_of_t = vq_of_t.derivative(1)
+
+            trajectory.append((q_of_t, vq_of_t, vvq_of_t))
+            
+
+            # apply the bezier curve on this subsection
+
+        return trajectory
     
     
     #TODO this is just a random trajectory, you need to do this yourself

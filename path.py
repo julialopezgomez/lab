@@ -203,3 +203,7 @@ if __name__ == "__main__":
 
     input("Press Enter to plot the path in 3D")
     plot_trajectory_in_3D(path, G, displayG=True)
+
+
+# comparisons, reports (benchmarking)
+# change varialbes in the code (discuss the results) - change something in the RRT* algorithm, or compare it with a different method

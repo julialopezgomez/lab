@@ -8,6 +8,8 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 from inverse_geometry import computeqgrasppose
 from path import computepath
 
+from control import maketraj
+
 # Quadratic Bézier functions
 def quadratic_bezier(P0, P1, P2, t):
     """Compute a point on a quadratic Bézier curve."""
@@ -218,7 +220,8 @@ if __name__ == "__main__":
     total_time = 5.0  # Total duration of 5 seconds
 
     # Create the smooth cube trajectory
-    smooth_cube_trajectory = interpolate_cube_path_with_quadratic_bezier(cube_placements, total_time)
+    # smooth_cube_trajectory = interpolate_cube_path_with_quadratic_bezier(cube_placements, total_time)
+    smooth_cube_trajectory = maketraj(path)
 
     # Compute the robot configurations for the smooth cube trajectory
     try:
