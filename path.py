@@ -22,6 +22,7 @@ from inverse_geometry import computeqgrasppose
 import matplotlib.pyplot as plt
 from plotting import plot_trajectory_in_3D
 
+
 def generate_random_cube_placement(robot, cube, q_current):
     '''
     Gene
@@ -105,7 +106,7 @@ def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delt
         c = lerp_cube(c_near, c_end, i*dt)
         q_end, valid = computeqgrasppose(robot, q_prev, cube, c)
         if not valid:
-            return q_prev, c_prev # lerp_cube(c_near, c_end, (i-1)*dt)
+            return q_prev, c_prev
         q_prev = q_end
         c_prev = c
     return q_end, c_end
@@ -132,6 +133,7 @@ def RRT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000
         q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
         q_new, c_new = new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps_newconf, delta_q)
         add_edge_and_vertex(G, c_near_idx, q_new, c_new)
+
         if valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps_validedge, delta_q):
             print("Path found")
             add_edge_and_vertex(G, len(G)-1, q_goal, c_goal)
@@ -141,76 +143,14 @@ def RRT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000
 
     return G, False
 
-# def get_path(G):
-#     path = []
-#     node = G[-1]
-#     while node[0] is not None:
-#         path = [node[1]] + path  #[(node[1], node[2])] + path
-#         node = G[node[0]]
-#     path = [G[0][1]] + path #[(G[0][1], G[0][2])] + path
-#     return path
-
 def get_path(G):
     path = []
     node = G[-1]
     while node[0] is not None:
-        path = [(node[1], node[2])] + path  #[(node[1], node[2])] + path
+        path = [node[1]] + path  #[(node[1], node[2])] + path
         node = G[node[0]]
-    path = [(G[0][1], G[0][2])] + path #[(G[0][1], G[0][2])] + path
+    path = [G[0][1]] + path #[(G[0][1], G[0][2])] + path
     return path
-
-def plot_connected_graphs(G1, index=0):
-    '''
-    Plot the connected graphs G1 and G2 in 3D, each with a different color, and lines connecting the connected vertices.
-    '''
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    for _, _, c in G1:
-        ax.scatter(c.translation[0], c.translation[1], c.translation[2], c='blue', marker='o')
-
-    # for _, _, c in G2:
-    #     ax.scatter(c.translation[0], c.translation[1], c.translation[2], c='red', marker='o')
-
-    path1 = get_path(G1)
-    # path2 = get_path(G2)
-    # print("len(path1):", len(path1))
-    # print("len(path2):", len(path2))
-    # print("len(G1):", len(G1))
-    # print("len(G2):", len(G2))
-
-    if path1 is not None:
-        for i in range(len(path1)-1):
-            q1, c1 = path1[i]
-            q2, c2 = path1[i+1]
-            ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'b')
-
-    # if path2 is not None:
-    #     for i in range(len(path2)-1):
-    #         q1, c1 = path2[i]
-    #         q2, c2 = path2[i+1]
-    #         ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'r')
-
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-
-    # set the title of the plot to the index of the iteration
-    ax.set_title(f'Iteration {index}')
-
-    # set the limits of the plot so that it is always in the same scale
-    x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
-    y_min, y_max = -0.3, 0.11  # Y-axis limits could be -0.3, 0.11
-    z_min, z_max = 0.93, 1.1
-    ax.set_xlim([x_min, x_max])
-    ax.set_ylim([y_min, y_max])
-    ax.set_zlim([z_min, z_max])
-
-    # plt.show()
-
-    # save image in img directory with name of index i
-    fig.savefig(f'img/{index}.png')
 
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
@@ -222,8 +162,6 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
         return None, G
 
     path = get_path(G)
-
-    plot_connected_graphs(G, index=1000)
 
     return path#, G # TODO path should just be the list of configurations.
 
