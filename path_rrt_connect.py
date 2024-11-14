@@ -104,13 +104,13 @@ def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delt
     '''
     c_end = c_rand.copy()
     dist = distance(c_near, c_rand)
-    reached = True
+    outcome = "Reached"
     if delta_q is not None and dist > delta_q:
         # if the distance between q_near and q_rand is greater than delta_q, 
         # we need get a new configuration q_end that is delta_q away from q_near
         # we use delta_q/dist to get the ratio of the distance between q_near and q_rand
         c_end = lerp_cube(c_near, c_rand, delta_q/dist)
-        reached = False
+        outcome = "Advanced"
 
     dt = 1 / discretisationsteps
     q_prev = q_near.copy()
@@ -119,86 +119,145 @@ def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delt
         c = lerp_cube(c_near, c_end, i*dt)
         q_end, valid = computeqgrasppose(robot, q_prev, cube, c)
         if not valid:
-            return q_prev, c_prev, False # lerp_cube(c_near, c_end, (i-1)*dt)
+            outcome = "Trapped"
+            return q_prev, c_prev, outcome # lerp_cube(c_near, c_end, (i-1)*dt)
         q_prev = q_end
         c_prev = c
+    return q_end, c_end, outcome
 
-    return q_end, c, reached
+def extend(G, c_rand, discretisationsteps, delta_q):
+    c_near_idx = nearest_vertex(G, c_rand)
+    q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
+    q_new, c_new, outcome = new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delta_q)
+    add_edge_and_vertex(G, c_near_idx, q_new, c_new)
+    return q_new, c_new, outcome
 
-def valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q=0.01):
-    return norm(c_goal.translation - new_placement(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q)[1].translation) < delta_q
-
-def connect(G, c_new, discretisationsteps):
+def connect(G, c_new, discretisationsteps, delta_q=0.01):
     '''
     Connects a new configuration c_new to the graph G by finding the nearest vertex and adding an edge.
     '''
-    c_near_idx = nearest_vertex(G, c_new)
-    q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
-    q_new, c_new, reached = new_placement(robot, cube, q_near, c_near, c_new, discretisationsteps, delta_q = None)
-    add_edge_and_vertex(G, c_near_idx, q_new, c_new)
-    return reached
+    while True:
+        _, _, outcome = extend(G, c_new, discretisationsteps, delta_q)
+        if outcome != "Advanced":
+            break
+    return outcome == "Reached"
+
+def swap(G1, G2):
+    '''
+    Swaps the two graphs G1 and G2
+    '''
+    return G2[:], G1[:]
 
 def RRT_CONNECT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
 
     discretisationsteps_newconf = 200
-    discretisationsteps_validedge = 200
 
     q_init = q_init.copy()
     q_goal = q_goal.copy()
     c_init = cubeplacementq0
     c_goal = cubeplacementqgoal
-    G1 = [(None, q_init, c_init)]
-    G2 = [(None, q_goal, c_goal)]
+    G_start = [(None, q_init, c_init)]
+    G_end = [(None, q_goal, c_goal)]
+    # G1, G2 = G_start, G_end
 
-    for i in range(k):
-
+    for i in range(0, k, 2):
         print("Iteration", i)
+
         _, c_rand = generate_random_cube_placement(robot, cube, q_init)
-        c_near_idx = nearest_vertex(G1, c_rand)
-        q_near, c_near = G1[c_near_idx][1], G1[c_near_idx][2]
-        q_new, c_new, _ = new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps_newconf, delta_q)
-        add_edge_and_vertex(G1, c_near_idx, q_new, c_new)
+        q_new, c_new, outcome = extend(G_start, c_rand, discretisationsteps_newconf, delta_q)
 
-        if connect(G2, c_new, discretisationsteps_newconf):
+        if connect(G_end, c_new, discretisationsteps_newconf, delta_q):
             print("Path found")
-            return G1, G2, True
-
-
-        # if valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps_validedge, delta_q):
-        #     print("Path found")
-        #     add_edge_and_vertex(G, len(G)-1, q_goal, c_goal)
-        #     return G, True
+            return G_start, G_end, True
         
+        print("Iteration", i+1)
+
+        _, c_rand = generate_random_cube_placement(robot, cube, q_goal)
+        q_new, c_new, outcome = extend(G_end, c_rand, discretisationsteps_newconf, delta_q)
+
+        if connect(G_start, c_new, discretisationsteps_newconf, delta_q):
+            print("Path found")
+            return G_start, G_end, True
+        
+
     print("Path not found")
 
-    return G1, G2, False
+    return G_start, G_end, False
 
-def get_path(G1, G2):
+def get_path(G):
     path = []
-    node = G2[-1]
+    node = G[-1]
     while node[0] is not None:
-        path += [node[1]]
-        node = G2[node[0]]
-
-    node = G1[G1[-1][0]]
-    while node[0] is not None:
-        path = [node[1]] + path
-        node = G1[node[0]]
-    
+        path = [(node[1], node[2])] + path  #[(node[1], node[2])] + path
+        node = G[node[0]]
+    path = [(G[0][1], G[0][2])] + path #[(G[0][1], G[0][2])] + path
     return path
 
-    
+def plot_connected_graphs(G1, G2, index=0):
+    '''
+    Plot the connected graphs G1 and G2 in 3D, each with a different color, and lines connecting the connected vertices.
+    '''
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    for _, _, c in G1:
+        ax.scatter(c.translation[0], c.translation[1], c.translation[2], c='blue', marker='o')
+
+    for _, _, c in G2:
+        ax.scatter(c.translation[0], c.translation[1], c.translation[2], c='red', marker='o')
+
+    path1 = get_path(G1)
+    path2 = get_path(G2)
+    print("len(path1):", len(path1))
+    print("len(path2):", len(path2))
+    print("len(G1):", len(G1))
+    print("len(G2):", len(G2))
+
+    if path1 is not None:
+        for i in range(len(path1)-1):
+            q1, c1 = path1[i]
+            q2, c2 = path1[i+1]
+            ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'b')
+
+    if path2 is not None:
+        for i in range(len(path2)-1):
+            q1, c1 = path2[i]
+            q2, c2 = path2[i+1]
+            ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'r')
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    # set the title of the plot to the index of the iteration
+    ax.set_title(f'Iteration {index}')
+
+    # set the limits of the plot so that it is always in the same scale
+    x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
+    y_min, y_max = -0.3, 0.11  # Y-axis limits could be -0.3, 0.11
+    z_min, z_max = 0.93, 1.1
+    ax.set_xlim([x_min, x_max])
+    ax.set_ylim([y_min, y_max])
+    ax.set_zlim([z_min, z_max])
+
+    # plt.show()
+
+    # save image in img directory with name of index i
+    fig.savefig(f'img/{index}.png')
 
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
-def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
+def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=500, delta_q=0.1):
     # Your existing RRT and path planning logic
     # Make sure to use the passed `robot` and `cube` variables
     G1, G2, pathfound = RRT_CONNECT(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k, delta_q)
+    plot_connected_graphs(G1, G2)
+    
     if not pathfound:
         return None, G1, G2
 
-    path = get_path(G1, G2)
+    path = get_path(G1) + get_path(G2).reverse()
 
     return path#, G # TODO path should just be the list of configurations.
 
