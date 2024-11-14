@@ -24,8 +24,6 @@ def controllaw(sim, robot, trajs, tcurrent, cube):
     The trajectory is a tuple of three functions q(t), vq(t), vvq(t) that return the desired configuration, velocity and acceleration at time t.
     '''
     q, vq = sim.getpybulletstate()
-
-    print(tcurrent)
     
     # compute the desired configuration, velocity and acceleration at time tcurrent 
     qd = trajs[0](tcurrent)

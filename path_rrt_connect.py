@@ -24,9 +24,9 @@ from plotting import plot_trajectory_in_3D
 
 def generate_random_cube_placement(robot, cube, q_current):
     '''
-    Gene
+    Generate a random cube placement within the constraints, and check for collisions
     '''
-    #return a random configuration
+    # set the limits for the random cube placement
     x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
     y_min, y_max = -0.3, 0.11  # Y-axis limits could be -0.3, 0.11
     z_min, z_max = 0.93, 1.1  # Z-axis limits (keeping the cube above the obstacle)
@@ -34,7 +34,7 @@ def generate_random_cube_placement(robot, cube, q_current):
     counter = 0
 
     while True:
-        # Generate a random cube placement within the constraints
+        # sample a random cube placement uniformly within the constraints
         x = np.random.uniform(x_min, x_max)
         y = np.random.uniform(y_min, y_max)
         z = np.random.uniform(z_min, z_max)
@@ -43,10 +43,9 @@ def generate_random_cube_placement(robot, cube, q_current):
         
         setcubeplacement(robot, cube, placement)
 
+        q_current = q_current.copy()
         # Get robot configuration for the cube placement and check for collisions using computegrasppose
-        q_rand = q_current.copy()
-
-        q_rand, not_in_collision = computeqgrasppose(robot, q_rand, cube, placement)
+        q_rand, not_in_collision = computeqgrasppose(robot, q_current, cube, placement)
 
         if not_in_collision:
             return q_rand, placement
@@ -67,7 +66,7 @@ def distance(c1,c2):
 
 def nearest_vertex(G, c_rand):
     '''
-    Finds the nearest vertex in the graph G to the random configuration c_rand
+    Finds the nearest vertex index in the graph G to the random configuration c_rand
     Returns the index of the nearest vertex
     '''
     min_dist = np.inf
@@ -80,23 +79,38 @@ def nearest_vertex(G, c_rand):
     return nearest_vertex
 
 def add_edge_and_vertex(G, parent, q, c):
+    '''
+    Add a new vertex to the grasph, including parent, configuration and cube placement.
+    '''
     G += [(parent, q, c)]
 
 def lerp(p0, p1, t):
+    '''
+    Linear interpolation between two points p0 and p1
+    '''
     return p0*(1-t) + p1*t
 
 def lerp_cube(cube_0, cube_1, t):
+    '''
+    Linear interpolation between two cube placements cube_0 and cube_1. Returns a new cube placement.
+    '''
     new_placement = lerp(cube_0.translation, cube_1.translation, t)
     return pin.SE3(rotate('z', 0), new_placement)
 
 def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delta_q=None):
+    '''
+    Returns a new configuration q_end and a new cube placement c_end that is delta_q away from q_near and not in collision.
+    If the new configuration is different from c_rand, the reached flag is set to False.
+    '''
     c_end = c_rand.copy()
     dist = distance(c_near, c_rand)
+    reached = True
     if delta_q is not None and dist > delta_q:
         # if the distance between q_near and q_rand is greater than delta_q, 
         # we need get a new configuration q_end that is delta_q away from q_near
         # we use delta_q/dist to get the ratio of the distance between q_near and q_rand
         c_end = lerp_cube(c_near, c_rand, delta_q/dist)
+        reached = False
 
     dt = 1 / discretisationsteps
     q_prev = q_near.copy()
@@ -105,16 +119,26 @@ def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delt
         c = lerp_cube(c_near, c_end, i*dt)
         q_end, valid = computeqgrasppose(robot, q_prev, cube, c)
         if not valid:
-            return q_prev, c_prev # lerp_cube(c_near, c_end, (i-1)*dt)
+            return q_prev, c_prev, False # lerp_cube(c_near, c_end, (i-1)*dt)
         q_prev = q_end
         c_prev = c
 
-    return q_end, c
+    return q_end, c, reached
 
 def valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q=0.01):
     return norm(c_goal.translation - new_placement(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q)[1].translation) < delta_q
 
-def RRT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
+def connect(G, c_new, discretisationsteps):
+    '''
+    Connects a new configuration c_new to the graph G by finding the nearest vertex and adding an edge.
+    '''
+    c_near_idx = nearest_vertex(G, c_new)
+    q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
+    q_new, c_new, reached = new_placement(robot, cube, q_near, c_near, c_new, discretisationsteps, delta_q = None)
+    add_edge_and_vertex(G, c_near_idx, q_new, c_new)
+    return reached
+
+def RRT_CONNECT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
 
     discretisationsteps_newconf = 200
     discretisationsteps_validedge = 200
@@ -123,44 +147,58 @@ def RRT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000
     q_goal = q_goal.copy()
     c_init = cubeplacementq0
     c_goal = cubeplacementqgoal
-    G = [(None, q_init, c_init)]
+    G1 = [(None, q_init, c_init)]
+    G2 = [(None, q_goal, c_goal)]
 
     for i in range(k):
 
         print("Iteration", i)
         _, c_rand = generate_random_cube_placement(robot, cube, q_init)
-        c_near_idx = nearest_vertex(G, c_rand)
-        q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
-        q_new, c_new = new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps_newconf, delta_q)
-        add_edge_and_vertex(G, c_near_idx, q_new, c_new)
-        if valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps_validedge, delta_q):
+        c_near_idx = nearest_vertex(G1, c_rand)
+        q_near, c_near = G1[c_near_idx][1], G1[c_near_idx][2]
+        q_new, c_new, _ = new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps_newconf, delta_q)
+        add_edge_and_vertex(G1, c_near_idx, q_new, c_new)
+
+        if connect(G2, c_new, discretisationsteps_newconf):
             print("Path found")
-            add_edge_and_vertex(G, len(G)-1, q_goal, c_goal)
-            return G, True
+            return G1, G2, True
+
+
+        # if valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps_validedge, delta_q):
+        #     print("Path found")
+        #     add_edge_and_vertex(G, len(G)-1, q_goal, c_goal)
+        #     return G, True
         
     print("Path not found")
 
-    return G, False
+    return G1, G2, False
 
-def get_path(G):
+def get_path(G1, G2):
     path = []
-    node = G[-1]
+    node = G2[-1]
     while node[0] is not None:
-        path = [node[1]] + path  #[(node[1], node[2])] + path
-        node = G[node[0]]
-    path = [G[0][1]] + path #[(G[0][1], G[0][2])] + path
+        path += [node[1]]
+        node = G2[node[0]]
+
+    node = G1[G1[-1][0]]
+    while node[0] is not None:
+        path = [node[1]] + path
+        node = G1[node[0]]
+    
     return path
+
+    
 
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
 def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
     # Your existing RRT and path planning logic
     # Make sure to use the passed `robot` and `cube` variables
-    G, pathfound = RRT(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k, delta_q)
+    G1, G2, pathfound = RRT_CONNECT(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k, delta_q)
     if not pathfound:
-        return None, G
+        return None, G1, G2
 
-    path = get_path(G)
+    path = get_path(G1, G2)
 
     return path#, G # TODO path should just be the list of configurations.
 
