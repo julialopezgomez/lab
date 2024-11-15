@@ -14,12 +14,13 @@ from inverse_geometry import computeqgrasppose
 import matplotlib.pyplot as plt
 from plotting import plot_trajectory_in_3D
 
+x_min, x_max = 0.33, 0.4
+y_min, y_max = -0.3, 0.11
+z_min, z_max = 0.93, 1.1
+
 def generate_random_cube_placement(robot, cube, q_current):
     """Generate a random cube placement within constraints."""
-    x_min, x_max = 0.33, 0.4
-    y_min, y_max = -0.3, 0.11
-    z_min, z_max = 0.93, 1.1
-
+    
     counter = 0
     while True:
         x = np.random.uniform(x_min, x_max)
