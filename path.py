@@ -259,14 +259,14 @@ def plot_connected_graphs(G1, G2):
         _, c2 = path1[i+1]
         ax.plot([c1.translation[0], c2.translation[0]], 
                 [c1.translation[1], c2.translation[1]], 
-                [c1.translation[2], c2.translation[2]], 'b', label='Path 1')    
+                [c1.translation[2], c2.translation[2]], 'b')    
 
     for i in range(len(path2)-1):
         _, c1 = path2[i]
         _, c2 = path2[i+1]
         ax.plot([c1.translation[0], c2.translation[0]], 
                 [c1.translation[1], c2.translation[1]], 
-                [c1.translation[2], c2.translation[2]], 'r', label='Path 2')
+                [c1.translation[2], c2.translation[2]], 'r')
 
 
     ax.set_xlabel('X')
@@ -277,7 +277,9 @@ def plot_connected_graphs(G1, G2):
     ax.set_title(f'Graph coverage and paths generated')
 
     # set the legend of the plot to show the labels of the paths
-    ax.legend(['Path 1', 'Path 2'])
+    ax.plot([], [], 'b', label='Path 1')
+    ax.plot([], [], 'r', label='Path 2')
+    ax.legend()
 
     # set the limits of the plot so that it is always in the same scale
     ax.set_xlim([x_min, x_max])
