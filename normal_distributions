@@ -1,0 +1,54 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+# Mean values and standard deviations for each delta_q
+means = {
+    "0.001": 8007.95,
+    "0.01": 798.25,
+    "0.02": 397.75,
+    "0.05": 157.8,
+    "0.1": 78.5,
+    "0.2": 38.75,
+    "0.5": 518.1,
+    "1.0": 1016.7
+}
+
+std_devs = {
+    "0.001": 90.92770479892253,
+    "0.01": 9.104257245926215,
+    "0.02": 4.559331091289598,
+    "0.05": 2.7495454169735036,
+    "0.1": 2.7838821814150108,
+    "0.2": 2.6433879775772606,
+    "0.5": 2175.3020686791983,
+    "1.0": 2994.4431552460633
+}
+
+# Convert delta_q keys to floats and sort for plotting
+delta_q_values = sorted([float(k) for k in means.keys()])
+mean_values = [means[str(k)] for k in delta_q_values]
+std_values = [std_devs[str(k)] for k in delta_q_values]
+
+# Set up x-axis for plotting distributions
+x_values = np.linspace(min(mean_values) - 3 * max(std_values), max(mean_values) + 3 * max(std_values), 1000)
+
+# Plot each normal distribution for each delta_q value
+plt.figure(figsize=(12, 8))
+
+for delta_q, mean, std in zip(delta_q_values, mean_values, std_values):
+    # Generate normal distribution values
+    y_values = norm.pdf(x_values, mean, std)
+    # Plot the distribution with a label
+    plt.plot(x_values, y_values, label=f"$\\Delta q = {delta_q}$ (mean = {mean:.2f}, std = {std:.2f})")
+
+# Apply log scale to y-axis
+plt.yscale('log')
+
+# Labeling the plot
+plt.title("Normal Distributions of Iteration Counts for Different $\Delta q$ Values")
+plt.xlabel("Iteration Count")
+plt.ylabel("Probability Density (log scale)")
+plt.legend()
+plt.grid(True)
+plt.show()

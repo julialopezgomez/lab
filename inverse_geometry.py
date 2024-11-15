@@ -15,7 +15,28 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 
 from tools import setcubeplacement
 
-def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
+def generate_random_cube_placement():
+    '''
+    Generate a random cube placement within the constraints, and check for collisions
+    '''
+    # set the limits for the random cube placement
+    x_min, x_max = 0.3, 0.42  # X-axis limits could be 0.33, 0.4
+    y_min, y_max = -0.4, 0.14  # Y-axis limits could be -0.3, 0.11
+    z_min, z_max = 0.93, 1.3  # Z-axis limits (keeping the cube above the obstacle)
+
+    counter = 0
+
+    while True:
+        # sample a random cube placement uniformly within the constraints
+        x = np.random.uniform(x_min, x_max)
+        y = np.random.uniform(y_min, y_max)
+        z = np.random.uniform(z_min, z_max)
+
+        placement = pin.SE3(rotate('z', 0), np.array([x, y, z]))
+
+        return placement
+
+def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None, DT = 1e-1):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     
     # locate the cube at the desired position
@@ -24,7 +45,6 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     q = qcurrent.copy()
 
     # set DT for the integration
-    DT = 1e-1
 
     
     counter = 0
@@ -72,9 +92,9 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
         # throw an error if the algorithm did not converge
         if counter == 10000:
             print("Error: Could not find a valid grasping configuration in 10000 iterations")
-            return None, False
+            return None, False, counter
 
-    return q, not collision(robot, q)
+    return q, not collision(robot, q), counter
             
 if __name__ == "__main__":
     from tools import setupwithmeshcat
@@ -86,9 +106,57 @@ if __name__ == "__main__":
     viz.display(random_q)
     import time
     time.sleep(3)
+
+    # create an array of 20 random configuration using the random_q and store them into an array
+    rand_configs = []
+
+    for i in range(1000):
+        random_q = np.random.rand(robot.model.nq)
+        rand_configs.append(random_q)
     
     q = robot.q0.copy()
-    q0,successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
-    qe,successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz)
+    # run computeqgrasppose for successinit for 10 interval values between 0.001 and 1.0 50 times each and get the aferage number of iterations and standard deviation
+
+    std = {
+        "0.001": 0,
+        "0.01": 0,
+        "0.02": 0,
+        "0.05": 0,
+        "0.1": 0,
+        "0.2": 0,
+        "0.5": 0,
+        "1.0": 0,
+    }
+
+    avg = {
+        "0.001": 0,
+        "0.01": 0,
+        "0.02": 0,
+        "0.05": 0,
+        "0.1": 0,
+        "0.2": 0,
+        "0.5": 0,
+        "1.0": 0,
+    }
+
+    for delta_q in [0.5, 1.0]:
+        counters = []  # List to store counter values for each delta_q
+        for i in range(len(rand_configs)):
+            print(i)
+            q0, successinit, counter = computeqgrasppose(robot, rand_configs[i], cube, CUBE_PLACEMENT, viz, DT=delta_q)
+            counters.append(counter)  # Store each counter value
+
+        # Calculate mean and standard deviation using numpy
+        print("Delta_q: ", delta_q)
+        print("Counters: ", counters)
+        avg[str(delta_q)] = np.mean(counters)
+        std[str(delta_q)] = np.std(counters)
+
+
+    print(avg)
+    print(std)
+    
+    q0,successinit, counter = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz, DT = 0.001)
+    qe,successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz, DT = 0.001)
 
     updatevisuals(viz, robot, cube, qe)

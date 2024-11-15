@@ -22,11 +22,7 @@ from inverse_geometry import computeqgrasppose
 import matplotlib.pyplot as plt
 from plotting import plot_trajectory_in_3D
 
-
 def generate_random_cube_placement(robot, cube, q_current):
-    '''
-    Generate a random cube placement within the constraints, and check for collisions
-    '''
     #return a random configuration
     x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
     y_min, y_max = -0.3, 0.11  # Y-axis limits could be -0.3, 0.11
@@ -44,22 +40,20 @@ def generate_random_cube_placement(robot, cube, q_current):
         
         setcubeplacement(robot, cube, placement)
 
-        return q_current, placement # TODO if left this way remove q_current from the return from arguments
+        # Get robot configuration for the cube placement and check for collisions using computegrasppose
+        q_rand = q_current.copy()
 
-    #     # Get robot configuration for the cube placement and check for collisions using computegrasppose
-    #     q_rand = q_current.copy()
+        q_rand, not_in_collision = computeqgrasppose(robot, q_rand, cube, placement)
 
-    #     q_rand, not_in_collision = computeqgrasppose(robot, q_rand, cube, placement)
-
-    #     if not_in_collision:
-    #         return q_rand, placement
+        if not_in_collision:
+            return q_rand, placement
         
-    #     counter += 1
-    #     if counter > 100:
-    #         break 
+        counter += 1
+        if counter > 100:
+            break 
 
-    # print("Error: Could not find a valid random configuration in 100 iterations")
-    # return None
+    print("Error: Could not find a valid random configuration")
+    return None
 
 def distance(c1,c2):
     '''
@@ -85,8 +79,8 @@ def nearest_vertex(G, c_rand):
 def add_edge_and_vertex(G, parent, q, c):
     G += [(parent, q, c)]
 
-def lerp(p0, p1, t):
-    return p0*(1-t) + p1*t
+def lerp(q0, q1, t):
+    return q0*(1-t) + q1*t
 
 def lerp_cube(cube_0, cube_1, t):
     new_placement = lerp(cube_0.translation, cube_1.translation, t)
@@ -108,15 +102,16 @@ def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delt
         c = lerp_cube(c_near, c_end, i*dt)
         q_end, valid = computeqgrasppose(robot, q_prev, cube, c)
         if not valid:
-            return q_prev, c_prev
+            return q_prev, c_prev # lerp_cube(c_near, c_end, (i-1)*dt)
         q_prev = q_end
         c_prev = c
-    return q_end, c_end
 
-def valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q):
-    return norm(c_goal.translation - new_placement(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q)[1].translation) < EPSILON
+    return q_end, c
 
-def RRT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.05):
+def valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q=0.01):
+    return norm(c_goal.translation - new_placement(robot, cube, q_new, c_new, c_goal, discretisationsteps, delta_q)[1].translation) < delta_q
+
+def RRT(robot, cube, q_init, q_goal, k=1000, delta_q=0.01, cubeplacementq0=None, cubeplacementqgoal=None):
 
     discretisationsteps_newconf = 200
     discretisationsteps_validedge = 200
@@ -135,7 +130,6 @@ def RRT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal, k=5000
         q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
         q_new, c_new = new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps_newconf, delta_q)
         add_edge_and_vertex(G, c_near_idx, q_new, c_new)
-
         if valid_edge_to_goal(robot, cube, q_new, c_new, c_goal, discretisationsteps_validedge, delta_q):
             print("Path found")
             add_edge_and_vertex(G, len(G)-1, q_goal, c_goal)
@@ -156,27 +150,20 @@ def get_path(G):
 
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
-def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.05):
+def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.01):
     # Your existing RRT and path planning logic
     # Make sure to use the passed `robot` and `cube` variables
-    G, pathfound, i = RRT(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k, delta_q)
+    G, pathfound, i = RRT(robot, cube, qinit, qgoal, k, delta_q, cubeplacementq0, cubeplacementqgoal)
     if not pathfound:
         return None, G, i
 
     path = get_path(G)
-
     return path, G, i
 
 
 def displaypath(robot,path,dt,viz):
     if path is None:
         return
-
-    # setcubeplacement(robot, cube, CUBE_PLACEMENT)
-    # for q in path:
-    #     viz.display(q)
-    #     time.sleep(dt)
-
     for q, c in path:
         setcubeplacement(robot, cube, c)
         viz.display(q)
@@ -195,7 +182,7 @@ if __name__ == "__main__":
     if not(successinit and successend):
         print ("error: invalid initial or end configuration")
     
-    path, G = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
+    path, G = computepath(robot, cube, q0,qe,CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET, k=5000, delta_q=0.05)
 
     input("Press Enter to display the path")
     

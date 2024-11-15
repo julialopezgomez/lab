@@ -135,7 +135,7 @@ def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delt
         c_prev = c
     return q_end, c_end, outcome
 
-def extend(G, q_rand, c_rand, discretisationsteps, delta_q):
+def extend(robot, cube, G, q_rand, c_rand, discretisationsteps, delta_q):
     c_near_idx = nearest_vertex(G, c_rand)
     q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
     # setcubeplacement(robot, cube, c_rand)
@@ -156,13 +156,13 @@ def extend(G, q_rand, c_rand, discretisationsteps, delta_q):
         
     return q_new, c_new, outcome
 
-def connect(G, q_rand, c_new, discretisationsteps, delta_q=0.01):
+def connect(robot, cube, G, q_rand, c_new, discretisationsteps, delta_q=0.01):
     '''
     Connects a new configuration c_new to the graph G by finding the nearest vertex and adding an edge.
     '''
     while True:
         # print("Running extend from connect")
-        _, _, outcome = extend(G, q_rand, c_new, discretisationsteps, delta_q)
+        _, _, outcome = extend(robot, cube, G, q_rand, c_new, discretisationsteps, delta_q)
         if outcome != ADVANCED:
             break
     return outcome == REACHED
@@ -185,32 +185,32 @@ def RRT_CONNECT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal
     G_end = [(None, q_goal, c_goal)]
 
     for i in range(0, k, 2):
-        print("Iteration", i)
+        # print("Iteration", i)
 
         q_rand, c_rand = generate_random_cube_placement(robot, cube, q_init)
-        q_new, c_new, _ = extend(G_start, q_rand, c_rand, discretisationsteps_newconf, delta_q)
+        q_new, c_new, _ = extend(robot, cube, G_start, q_rand, c_rand, discretisationsteps_newconf, delta_q)
 
-        if connect(G_end, q_new, c_new, discretisationsteps_newconf, delta_q):
+        if connect(robot, cube, G_end, q_new, c_new, discretisationsteps_newconf, delta_q):
             print("Path found")
-            return G_start, G_end, True
+            return G_start, G_end, True, i
         
         # plot_connected_graphs(G_start, G_end, i)
         
-        print("Iteration", i+1)
+        # print("Iteration", i+1)
 
         q_rand, c_rand = generate_random_cube_placement(robot, cube, q_goal)
-        q_new, c_new, _ = extend(G_end, q_rand, c_rand, discretisationsteps_newconf, delta_q)
+        q_new, c_new, _ = extend(robot, cube, G_end, q_rand, c_rand, discretisationsteps_newconf, delta_q)
 
-        if connect(G_start, q_new, c_new, discretisationsteps_newconf, delta_q):
+        if connect(robot, cube, G_start, q_new, c_new, discretisationsteps_newconf, delta_q):
             print("Path found")
-            return G_start, G_end, True
+            return G_start, G_end, True, i
         
         # plot_connected_graphs(G_start, G_end, i+1)
         
 
     print("Path not found")
 
-    return G_start, G_end, False
+    return G_start, G_end, False, k
 
 def get_path(G):
     path = []
@@ -287,8 +287,8 @@ def plot_connected_graphs(G1, G2, index=0):
 def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.05):
     # Your existing RRT and path planning logic
     # Make sure to use the passed `robot` and `cube` variables
-    G1, G2, pathfound = RRT_CONNECT(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k, delta_q)
-    plot_connected_graphs(G1, G2, index=1001)
+    G1, G2, pathfound, i = RRT_CONNECT(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k, delta_q)
+    # plot_connected_graphs(G1, G2, index=1001)
     
     if not pathfound:
         return None, G1, G2
@@ -300,7 +300,8 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
 
     path = path1 + path2[::-1]
 
-    return path#, G # TODO path should just be the list of configurations.
+    # return path#, G # TODO path should just be the list of configurations.
+    return path, G1, i
 
 
 def displaypath(robot,path,dt,viz):
