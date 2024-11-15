@@ -29,9 +29,9 @@ def generate_random_cube_placement(robot, cube, q_current):
     Generate a random cube placement within the constraints, and check for collisions
     '''
     # set the limits for the random cube placement
-    x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
-    y_min, y_max = -0.3, 0.11  # Y-axis limits could be -0.3, 0.11
-    z_min, z_max = 0.93, 1.1  # Z-axis limits (keeping the cube above the obstacle)
+    x_min, x_max = 0.3, 0.42  # X-axis limits could be 0.33, 0.4
+    y_min, y_max = -0.4, 0.14  # Y-axis limits could be -0.3, 0.11
+    z_min, z_max = 0.93, 1.3  # Z-axis limits (keeping the cube above the obstacle)
 
     counter = 0
 
@@ -42,22 +42,24 @@ def generate_random_cube_placement(robot, cube, q_current):
         z = np.random.uniform(z_min, z_max)
 
         placement = pin.SE3(rotate('z', 0), np.array([x, y, z]))
+
+        return q_current, placement
         
-        setcubeplacement(robot, cube, placement)
+    #     setcubeplacement(robot, cube, placement)
 
-        q_current = q_current.copy()
-        # Get robot configuration for the cube placement and check for collisions using computegrasppose
-        q_rand, not_in_collision = computeqgrasppose(robot, q_current, cube, placement)
+    #     q_current = q_current.copy()
+    #     # Get robot configuration for the cube placement and check for collisions using computegrasppose
+    #     q_rand, not_in_collision = computeqgrasppose(robot, q_current, cube, placement)
 
-        if not_in_collision:
-            return q_rand, placement
+    #     if not_in_collision:
+    #         return q_rand, placement
         
-        counter += 1
-        if counter > 100:
-            break 
+    #     counter += 1
+    #     if counter > 100:
+    #         break 
 
-    print("Error: Could not find a valid random configuration in 100 iterations")
-    return None
+    # print("Error: Could not find a valid random configuration in 100 iterations")
+    # return None
 
 def distance(c1,c2):
     '''
@@ -106,44 +108,61 @@ def new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delt
     if delta_q is not None and dist > delta_q:
         c_end = lerp_cube(c_near, c_rand, delta_q/dist)
         outcome = ADVANCED
+        # setcubeplacement(robot, cube, c_end)
+        # q_end, valid = computeqgrasppose(robot, q_near, cube, c_end, viz=None)
+        # viz.display(q_end)
+        # input("Displaying c_end. Press Enter to continue")
 
     dt = 1 / discretisationsteps
     q_prev = q_near.copy()
     c_prev = c_near.copy()
     for i in range(1,discretisationsteps + 1):
         c = lerp_cube(c_near, c_end, i*dt)
+        #print the type of the visualisation
+        #print(type(visualisation))
         q_end, valid = computeqgrasppose(robot, q_prev, cube, c)
+        # setcubeplacement(robot, cube, c)
+        # viz.display(q_end)
+        # print("valid:", valid)
+        # print("collision:", collision(robot, q_end))
         if not valid:
+            # print("Trapped at index", i)
+            # answer = input("Press Enter to continue, q to quit")
+            # if answer != "":
             outcome = TRAPPED
             return q_prev, c_prev, outcome
         q_prev = q_end
         c_prev = c
-    return q_end, c, outcome
+    return q_end, c_end, outcome
 
-def extend(G, c_rand, discretisationsteps, delta_q):
+def extend(G, q_rand, c_rand, discretisationsteps, delta_q):
     c_near_idx = nearest_vertex(G, c_rand)
     q_near, c_near = G[c_near_idx][1], G[c_near_idx][2]
+    # setcubeplacement(robot, cube, c_rand)
+    # viz.display(q_rand)
+    # input("Displaying q_rand. Press Enter to continue")
     q_new, c_new, outcome = new_placement(robot, cube, q_near, c_near, c_rand, discretisationsteps, delta_q)
     add_edge_and_vertex(G, c_near_idx, q_new, c_new)
-    print("\nOUTCOME:", outcome)
-    print("c_near:", c_near.translation)
-    print("c_rand:", c_rand.translation)
-    print("c_new:", c_new.translation)
-    print("c_new is being added to the graph")
-    count = 0
-    for _, _, cubesss in G:
-        if norm(cubesss.translation - c_new.translation) == 0:
-            count += 1
-    print("there were already ", count, "cubes in the graph")
+    # print("OUTCOME:", outcome)
+    # print("c_near:", c_near.translation)
+    # print("c_rand:", c_rand.translation)
+    # print("c_new:", c_new.translation)
+    # print("c_new is being added to the graph")
+    # count = 0
+    # for _, _, cubesss in G:
+    #     if norm(cubesss.translation - c_new.translation) == 0:
+    #         count += 1
+    # print("there were already ", count, "cubes in the graph\n")
         
     return q_new, c_new, outcome
 
-def connect(G, c_new, discretisationsteps, delta_q=0.01):
+def connect(G, q_rand, c_new, discretisationsteps, delta_q=0.01):
     '''
     Connects a new configuration c_new to the graph G by finding the nearest vertex and adding an edge.
     '''
     while True:
-        _, _, outcome = extend(G, c_new, discretisationsteps, delta_q)
+        # print("Running extend from connect")
+        _, _, outcome = extend(G, q_rand, c_new, discretisationsteps, delta_q)
         if outcome != ADVANCED:
             break
     return outcome == REACHED
@@ -168,10 +187,10 @@ def RRT_CONNECT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal
     for i in range(0, k, 2):
         print("Iteration", i)
 
-        _, c_rand = generate_random_cube_placement(robot, cube, q_init)
-        _, c_new, _ = extend(G_start, c_rand, discretisationsteps_newconf, delta_q)
+        q_rand, c_rand = generate_random_cube_placement(robot, cube, q_init)
+        q_new, c_new, _ = extend(G_start, q_rand, c_rand, discretisationsteps_newconf, delta_q)
 
-        if connect(G_end, c_new, discretisationsteps_newconf, delta_q):
+        if connect(G_end, q_new, c_new, discretisationsteps_newconf, delta_q):
             print("Path found")
             return G_start, G_end, True
         
@@ -179,10 +198,10 @@ def RRT_CONNECT(robot, cube, q_init, q_goal, cubeplacementq0, cubeplacementqgoal
         
         print("Iteration", i+1)
 
-        _, c_rand = generate_random_cube_placement(robot, cube, q_goal)
-        _, c_new, _ = extend(G_end, c_rand, discretisationsteps_newconf, delta_q)
+        q_rand, c_rand = generate_random_cube_placement(robot, cube, q_goal)
+        q_new, c_new, _ = extend(G_end, q_rand, c_rand, discretisationsteps_newconf, delta_q)
 
-        if connect(G_start, c_new, discretisationsteps_newconf, delta_q):
+        if connect(G_start, q_new, c_new, discretisationsteps_newconf, delta_q):
             print("Path found")
             return G_start, G_end, True
         
@@ -197,9 +216,9 @@ def get_path(G):
     path = []
     node = G[-1]
     while node[0] is not None:
-        path = [(node[1], node[2])] + path  #[(node[1], node[2])] + path
+        path = [(node[1], node[2])] + path
         node = G[node[0]]
-    path = [(G[0][1], G[0][2])] + path #[(G[0][1], G[0][2])] + path
+    path = [(G[0][1], G[0][2])] + path
     return path
 
 def plot_connected_graphs(G1, G2, index=0):
@@ -218,16 +237,30 @@ def plot_connected_graphs(G1, G2, index=0):
 
     path1 = get_path(G1)
     path2 = get_path(G2)
+
+    for i in range(len(path1)-1):
+        q1, c1 = path1[i]
+        q2, c2 = path1[i+1]
+        ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'b')
+
+    for i in range(len(path2)-1):
+        q1, c1 = path2[i]
+        q2, c2 = path2[i+1]
+        ax.plot([c1.translation[0], c2.translation[0]], [c1.translation[1], c2.translation[1]], [c1.translation[2], c2.translation[2]], 'r')
+
+
+
+
     print("len(path1):", len(path1))
     print("len(path2):", len(path2))
-    print("len(G1):", len(G1))
-    print("len(G2):", len(G2))
-    print("G_start:")
-    for i in range(len(G1)):
-        print(G1[i][2].translation)
-    print("G_end:")
-    for i in range(len(G2)):
-        print(G2[i][2].translation)
+    # print("len(G1):", len(G1))
+    # print("len(G2):", len(G2))
+    # print("G_start:")
+    # for i in range(len(G1)):
+    #     print(G1[i][2].translation)
+    # print("G_end:")
+    # for i in range(len(G2)):
+    #     print(G2[i][2].translation)
 
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -237,9 +270,9 @@ def plot_connected_graphs(G1, G2, index=0):
     ax.set_title(f'Iteration {index}')
 
     # set the limits of the plot so that it is always in the same scale
-    x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
-    y_min, y_max = -0.3, 0.11  # Y-axis limits could be -0.3, 0.11
-    z_min, z_max = 0.93, 1.1
+    x_min, x_max = 0.3, 0.42  # X-axis limits could be 0.33, 0.4
+    y_min, y_max = -0.4, 0.14  # Y-axis limits could be -0.3, 0.11
+    z_min, z_max = 0.93, 1.3  # Z-axis limits (keeping the cube above the obstacle)
     ax.set_xlim([x_min, x_max])
     ax.set_ylim([y_min, y_max])
     ax.set_zlim([z_min, z_max])
@@ -251,16 +284,21 @@ def plot_connected_graphs(G1, G2, index=0):
 
 #returns a collision free path from qinit to qgoal under grasping constraints
 #the path is expressed as a list of configurations
-def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=500, delta_q=0.1):
+def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k=5000, delta_q=0.05):
     # Your existing RRT and path planning logic
     # Make sure to use the passed `robot` and `cube` variables
     G1, G2, pathfound = RRT_CONNECT(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, k, delta_q)
-    plot_connected_graphs(G1, G2)
+    plot_connected_graphs(G1, G2, index=1001)
     
     if not pathfound:
         return None, G1, G2
+    
+    path1 = get_path(G1)
+    print("path1:", len(path1))
+    path2 = get_path(G2)
+    print("path2:", len(path2))
 
-    path = get_path(G1) + get_path(G2).reverse()
+    path = path1 + path2[::-1]
 
     return path#, G # TODO path should just be the list of configurations.
 
@@ -268,15 +306,15 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
 def displaypath(robot,path,dt,viz):
     if path is None:
         return
-    # for q, c in path:
-    #     setcubeplacement(robot, cube, c)
-    #     viz.display(q)
-    #     time.sleep(dt)
-
-    setcubeplacement(robot, cube, CUBE_PLACEMENT)
-    for q in path:
+    for q, c in path:
+        setcubeplacement(robot, cube, c)
         viz.display(q)
         time.sleep(dt)
+
+    # setcubeplacement(robot, cube, CUBE_PLACEMENT)
+    # for q in path:
+    #     viz.display(q)
+    #     time.sleep(dt)
 
 if __name__ == "__main__":
 

@@ -3,7 +3,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from numpy.linalg import norm
 import numpy as np
 
-def plot_trajectory_in_3D(path, G, displayG=False):
+def plot_trajectory_in_3D(path, G):
     '''
     Creates a 3D plot of the trajectory, with lines connecting the points, and also plots all the vertices of the graph
     '''

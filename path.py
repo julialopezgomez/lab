@@ -25,7 +25,7 @@ from plotting import plot_trajectory_in_3D
 
 def generate_random_cube_placement(robot, cube, q_current):
     '''
-    Gene
+    Generate a random cube placement within the constraints, and check for collisions
     '''
     #return a random configuration
     x_min, x_max = 0.33, 0.4  # X-axis limits could be 0.33, 0.4
@@ -44,20 +44,22 @@ def generate_random_cube_placement(robot, cube, q_current):
         
         setcubeplacement(robot, cube, placement)
 
-        # Get robot configuration for the cube placement and check for collisions using computegrasppose
-        q_rand = q_current.copy()
+        return q_current, placement # TODO if left this way remove q_current from the return from arguments
 
-        q_rand, not_in_collision = computeqgrasppose(robot, q_rand, cube, placement)
+    #     # Get robot configuration for the cube placement and check for collisions using computegrasppose
+    #     q_rand = q_current.copy()
 
-        if not_in_collision:
-            return q_rand, placement
+    #     q_rand, not_in_collision = computeqgrasppose(robot, q_rand, cube, placement)
+
+    #     if not_in_collision:
+    #         return q_rand, placement
         
-        counter += 1
-        if counter > 100:
-            break 
+    #     counter += 1
+    #     if counter > 100:
+    #         break 
 
-    print("Error: Could not find a valid random configuration in 100 iterations")
-    return None
+    # print("Error: Could not find a valid random configuration in 100 iterations")
+    # return None
 
 def distance(c1,c2):
     '''
@@ -147,9 +149,9 @@ def get_path(G):
     path = []
     node = G[-1]
     while node[0] is not None:
-        path = [node[1]] + path  #[(node[1], node[2])] + path
+        path = [(node[1], node[2])] + path
         node = G[node[0]]
-    path = [G[0][1]] + path #[(G[0][1], G[0][2])] + path
+    path = [(G[0][1], G[0][2])] + path
     return path
 
 #returns a collision free path from qinit to qgoal under grasping constraints
@@ -163,19 +165,20 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
 
     path = get_path(G)
 
-    return path#, G # TODO path should just be the list of configurations.
+    return path, G
 
 
 def displaypath(robot,path,dt,viz):
     if path is None:
         return
-    # for q, c in path:
-    #     setcubeplacement(robot, cube, c)
+
+    # setcubeplacement(robot, cube, CUBE_PLACEMENT)
+    # for q in path:
     #     viz.display(q)
     #     time.sleep(dt)
 
-    setcubeplacement(robot, cube, CUBE_PLACEMENT)
-    for q in path:
+    for q, c in path:
+        setcubeplacement(robot, cube, c)
         viz.display(q)
         time.sleep(dt)
 
@@ -192,7 +195,7 @@ if __name__ == "__main__":
     if not(successinit and successend):
         print ("error: invalid initial or end configuration")
     
-    path = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
+    path, G = computepath(robot, cube, q0, qe, CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET)
 
     input("Press Enter to display the path")
     
@@ -202,4 +205,4 @@ if __name__ == "__main__":
             break
 
     input("Press Enter to plot the path in 3D")
-    # plot_trajectory_in_3D(path, G, displayG=True)
+    plot_trajectory_in_3D(path, G, displayG=True)
