@@ -308,8 +308,8 @@ def computepath(robot, cube, qinit, qgoal, cubeplacementq0, cubeplacementqgoal, 
     if not pathfound:
         return None
     
-    path1 = get_path(G1)
-    path2 = get_path(G2)
+    path1 = get_path(G1, with_cube=True)
+    path2 = get_path(G2, with_cube=True)
     
     return path1 + path2[::-1]
 
@@ -321,15 +321,15 @@ def displaypath(robot,path,dt,viz):
     if path is None:
         return
     
-    # for q, c in path:
-    #     setcubeplacement(robot, cube, c)
-    #     viz.display(q)
-    #     time.sleep(dt)
-
-    setcubeplacement(robot, cube, CUBE_PLACEMENT)
-    for q in path:
+    for q, c in path:
+        setcubeplacement(robot, cube, c)
         viz.display(q)
         time.sleep(dt)
+
+    # setcubeplacement(robot, cube, CUBE_PLACEMENT)
+    # for q in path:
+    #     viz.display(q)
+    #     time.sleep(dt)
 
 if __name__ == "__main__":
 
